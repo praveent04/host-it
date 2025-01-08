@@ -64,11 +64,11 @@ export function Landing() {
         <CardContent>
           <div className="space-y-2">
             <Label htmlFor="deployed-url">Deployed URL</Label>
-            <Input id="deployed-url" readOnly type="url" value={`http://${uploadId}.dev.100xdevs.com:3001/index.html`} />
+            <Input id="deployed-url" readOnly type="url" value={`http://${uploadId}.host-it.com:3001/index.html`} />
           </div>
           <br />
           <Button className="w-full" variant="outline">
-            <a href={`http://${uploadId}.10kdevs.com/index.html`} target="_blank">
+            <a href={`http://${uploadId}.host-it.com/index.html`} target="_blank">
               Visit Website
             </a>
           </Button>

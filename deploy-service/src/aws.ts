@@ -1,17 +1,20 @@
 import { S3 } from "aws-sdk";
 import fs from "fs";
 import path from "path";
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const s3 = new S3({
-    accessKeyId: "ed8dcfc36955f5e6f10051e1b0b1b5a3",
-    secretAccessKey: "fcc602ba9e021f7c3bff8133f919f7f1db52b551dca2efe06547a4041e66253d",
-    endpoint: "https://e5377c689da659b2478c8d6909161663.r2.cloudflarestorage.com"
-})
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    endpoint: process.env.AWS_ENDPOINT!
+});
 
-// output/asdasd
+ 
 export async function downloadS3Folder(prefix: string) {
     const allFiles = await s3.listObjectsV2({
-        Bucket: "vercel",
+        Bucket: process.env.AWS_BUCKET!,
         Prefix: prefix
     }).promise();
     
@@ -29,7 +32,7 @@ export async function downloadS3Folder(prefix: string) {
                 fs.mkdirSync(dirName, { recursive: true });
             }
             s3.getObject({
-                Bucket: "vercel",
+                Bucket: process.env.AWS_BUCKET!,
                 Key
             }).createReadStream().pipe(outputFile).on("finish", () => {
                 resolve("");
@@ -41,12 +44,21 @@ export async function downloadS3Folder(prefix: string) {
     await Promise.all(allPromises?.filter(x => x !== undefined));
 }
 
-export function copyFinalDist(id: string) {
+export async function copyFinalDist(id: string) {
     const folderPath = path.join(__dirname, `output/${id}/dist`);
-    const allFiles = getAllFiles(folderPath);
-    allFiles.forEach(file => {
-        uploadFile(`dist/${id}/` + file.slice(folderPath.length + 1), file);
-    })
+    try {
+        const allFiles = getAllFiles(folderPath);
+        const uploadPromises = allFiles.map(file => {
+            return uploadFile(
+                `dist/${id}/` + file.slice(folderPath.length + 1), 
+                file
+            );
+        });
+        await Promise.all(uploadPromises);
+    } catch (error) {
+        console.error(`Error copying dist files for ${id}:`, error);
+        throw error; // Propagate error to main function
+    }
 }
 
 
@@ -76,7 +88,7 @@ const getAllFiles = (folderPath: string) => {
     
     const response = await s3.upload({
         Body: fileContent,
-        Bucket: "vercel",
+        Bucket: process.env.AWS_BUCKET!,
         Key: normalizedFileName,
     }).promise();
     
