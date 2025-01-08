@@ -12,9 +12,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.uploadFile = void 0;
 const aws_sdk_1 = require("aws-sdk");
-const fs_1 = __importDefault(require("fs"));
+const express_1 = __importDefault(require("express"));
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 const s3 = new aws_sdk_1.S3({
@@ -22,15 +21,19 @@ const s3 = new aws_sdk_1.S3({
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     endpoint: process.env.AWS_ENDPOINT
 });
-const uploadFile = (fileName, localFilePath) => __awaiter(void 0, void 0, void 0, function* () {
-    const fileContent = fs_1.default.readFileSync(localFilePath);
-    // Convert backslashes to forward slashes
-    const normalizedFileName = fileName.replace(/\\/g, '/');
-    const response = yield s3.upload({
-        Body: fileContent,
+const app = (0, express_1.default)();
+app.get("/*", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const host = req.hostname;
+    console.log(host);
+    const id = host.split(".")[0];
+    const filePath = req.path;
+    const content = yield s3.getObject({
         Bucket: process.env.AWS_BUCKET,
-        Key: normalizedFileName,
+        Key: `dist/${id}${filePath}`
     }).promise();
-    console.log(response);
-});
-exports.uploadFile = uploadFile;
+    const type = filePath.endsWith("html") ? "text/html" : filePath.endsWith("css") ?
+        "text/css" : "application/javascript";
+    res.set("content-type", type);
+    res.send(content.Body);
+}));
+app.listen(3001);

@@ -20,13 +20,15 @@ const file_1 = require("./file");
 const path_1 = __importDefault(require("path"));
 const aws_1 = require("./aws");
 const redis_1 = require("redis");
-const promises_1 = __importDefault(require("fs/promises")); // Import fs promises for directory deletion
+const promises_1 = __importDefault(require("fs/promises"));
+const dotenv_1 = __importDefault(require("dotenv"));
+dotenv_1.default.config();
 const publisher = (0, redis_1.createClient)({
-    url: 'redis://default:pkts@12345@127.0.0.1:6379'
+    url: process.env.REDIS_URL
 });
 publisher.connect();
 const subscriber = (0, redis_1.createClient)({
-    url: 'redis://default:pkts@12345@127.0.0.1:6379'
+    url: process.env.REDIS_URL
 });
 subscriber.connect();
 const app = (0, express_1.default)();
