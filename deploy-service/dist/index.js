@@ -17,20 +17,50 @@ const aws_1 = require("./aws");
 const utils_1 = require("./utils");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
-const subscriber = (0, redis_1.createClient)({
-    url: process.env.REDIS_URL
-});
-subscriber.connect();
-const publisher = (0, redis_1.createClient)({
-    url: process.env.REDIS_URL
-});
-publisher.connect();
+// Redis connection details
+const redisHost = process.env.REDIS_HOST || "your-redis-host";
+const redisPort = parseInt(process.env.REDIS_PORT || "6379", 10);
+const redisPassword = process.env.REDIS_PASSWORD || "your-redis-password";
+function createRedisClients() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const publisher = (0, redis_1.createClient)({
+            socket: {
+                host: redisHost,
+                port: redisPort,
+            },
+            password: redisPassword
+        });
+        publisher.on('error', (err) => {
+            console.error('Redis Publisher Connection Error:', err);
+        });
+        yield publisher.connect();
+        console.log('Publisher connected');
+        const subscriber = (0, redis_1.createClient)({
+            socket: {
+                host: redisHost,
+                port: redisPort,
+            },
+            password: redisPassword
+        });
+        subscriber.on('error', (err) => {
+            console.error('Redis Subscriber Connection Error:', err);
+        });
+        yield subscriber.connect();
+        console.log('Subscriber connected');
+        return { publisher, subscriber };
+    });
+}
+let publisher;
+let subscriber;
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
-        while (1) {
+        const clients = yield createRedisClients();
+        publisher = clients.publisher;
+        subscriber = clients.subscriber;
+        while (true) {
             try {
                 const res = yield subscriber.brPop((0, redis_1.commandOptions)({ isolated: true }), 'build-queue', 0);
-                //@ts-ignore
+                // @ts-ignore
                 const id = res.element;
                 try {
                     yield (0, aws_1.downloadS3Folder)(`output/${id}`);

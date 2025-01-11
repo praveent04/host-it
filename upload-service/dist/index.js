@@ -24,9 +24,9 @@ const promises_1 = __importDefault(require("fs/promises"));
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 // Redis connection details
-const redisHost = "redis-18948.crce179.ap-south-1-1.ec2.redns.redis-cloud.com";
+const redisHost = process.env.REDIS_URL;
 const redisPort = 18948;
-const redisPassword = "MOZAMGOyBQLBaa4PjdqyozshtV55ZJSg";
+const redisPassword = process.env.REDIS_PASSWORD;
 function createRedisClients() {
     return __awaiter(this, void 0, void 0, function* () {
         const publisher = (0, redis_1.createClient)({
