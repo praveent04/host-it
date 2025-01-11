@@ -6,7 +6,7 @@ const express = require('express');
 dotenv.config();
 
 // Redis connection details
-const redisHost = process.env.REDIS_HOST ;
+const redisHost = process.env.REDIS_URL ;
 const redisPort = 18948;
 const redisPassword = process.env.REDIS_PASSWORD;
 
