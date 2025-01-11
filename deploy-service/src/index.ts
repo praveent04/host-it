@@ -1,6 +1,7 @@
 import { commandOptions, createClient } from "redis";
 import { copyFinalDist, downloadS3Folder } from "./aws";
 import { buildProject, cleanupProject } from "./utils";
+const express = require('express');
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -9,6 +10,15 @@ dotenv.config();
 const redisHost: string = process.env.REDIS_HOST || "your-redis-host";
 const redisPort: number = parseInt(process.env.REDIS_PORT || "6379", 10);
 const redisPassword: string = process.env.REDIS_PASSWORD || "your-redis-password";
+
+// Create an Express application
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Start the Express server
+app.listen(PORT, () => {
+    console.log(`Express server is running on port ${PORT}`);
+});
 
 async function createRedisClients() {
     const publisher = createClient({
@@ -83,3 +93,4 @@ async function main() {
 }
 
 main();
+0

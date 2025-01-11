@@ -15,12 +15,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const redis_1 = require("redis");
 const aws_1 = require("./aws");
 const utils_1 = require("./utils");
+const express = require('express');
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 // Redis connection details
 const redisHost = process.env.REDIS_HOST || "your-redis-host";
 const redisPort = parseInt(process.env.REDIS_PORT || "6379", 10);
 const redisPassword = process.env.REDIS_PASSWORD || "your-redis-password";
+// Create an Express application
+const app = express();
+const PORT = process.env.PORT || 3000;
+// Start the Express server
+app.listen(PORT, () => {
+    console.log(`Express server is running on port ${PORT}`);
+});
 function createRedisClients() {
     return __awaiter(this, void 0, void 0, function* () {
         const publisher = (0, redis_1.createClient)({
@@ -82,3 +90,4 @@ function main() {
     });
 }
 main();
+0;
