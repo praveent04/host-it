@@ -6,10 +6,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Redis connection details
-const redisHost: string = process.env.REDIS_HOST || "your-redis-host";
-const redisPort: number = parseInt(process.env.REDIS_PORT || "6379", 10);
-const redisPassword: string = process.env.REDIS_PASSWORD || "your-redis-password";
+const redisHost = process.env.REDIS_URL;
+const redisPort = 18948;
+const redisPassword = process.env.REDIS_PASSWORD;
 
 // Create an Express application
 const app = express();
