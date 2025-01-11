@@ -23,17 +23,44 @@ const redis_1 = require("redis");
 const promises_1 = __importDefault(require("fs/promises"));
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
-const publisher = (0, redis_1.createClient)({
-    url: process.env.REDIS_URL
-});
-publisher.connect();
-const subscriber = (0, redis_1.createClient)({
-    url: process.env.REDIS_URL
-});
-subscriber.connect();
+// Redis connection details
+const redisHost = "redis-18948.crce179.ap-south-1-1.ec2.redns.redis-cloud.com";
+const redisPort = 18948;
+const redisPassword = "MOZAMGOyBQLBaa4PjdqyozshtV55ZJSg";
+function createRedisClients() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const publisher = (0, redis_1.createClient)({
+            socket: {
+                host: redisHost,
+                port: redisPort,
+            },
+            password: redisPassword
+        });
+        publisher.on('error', (err) => {
+            console.error('Redis Publisher Connection Error:', err);
+        });
+        yield publisher.connect();
+        console.log('Publisher connected');
+        const subscriber = (0, redis_1.createClient)({
+            socket: {
+                host: redisHost,
+                port: redisPort,
+            },
+            password: redisPassword
+        });
+        subscriber.on('error', (err) => {
+            console.error('Redis Subscriber Connection Error:', err);
+        });
+        yield subscriber.connect();
+        console.log('Subscriber connected');
+        return { publisher, subscriber };
+    });
+}
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
+let publisher;
+let subscriber;
 // Helper function to delete directory recursively
 function deleteDirectory(dirPath) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -46,42 +73,49 @@ function deleteDirectory(dirPath) {
         }
     });
 }
-app.post("/deploy", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const repoUrl = req.body.repoUrl;
-    const id = (0, utils_1.generate)();
-    const outputPath = path_1.default.join(__dirname, `output/${id}`);
+(() => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Clone repository
-        yield (0, simple_git_1.default)().clone(repoUrl, outputPath);
-        // Get all files
-        const files = (0, file_1.getAllFiles)(outputPath);
-        // Upload files to S3
-        for (const file of files) {
-            yield (0, aws_1.uploadFile)(file.slice(__dirname.length + 1), file);
-        }
-        // Push to Redis
-        yield publisher.lPush("build-queue", id);
-        yield publisher.hSet("status", id, "uploaded");
-        // Delete the directory after successful upload
-        yield deleteDirectory(outputPath);
-        res.json({
-            id: id
+        const clients = yield createRedisClients();
+        publisher = clients.publisher;
+        subscriber = clients.subscriber;
+        app.post("/deploy", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+            const repoUrl = req.body.repoUrl;
+            const id = (0, utils_1.generate)();
+            const outputPath = path_1.default.join(__dirname, `output/${id}`);
+            try {
+                yield (0, simple_git_1.default)().clone(repoUrl, outputPath);
+                const files = (0, file_1.getAllFiles)(outputPath);
+                for (const file of files) {
+                    yield (0, aws_1.uploadFile)(file.slice(__dirname.length + 1), file);
+                }
+                yield publisher.lPush("build-queue", id);
+                yield publisher.hSet("status", id, "uploaded");
+                yield deleteDirectory(outputPath);
+                res.json({ id: id });
+            }
+            catch (error) {
+                yield deleteDirectory(outputPath);
+                console.error("Error in deploy:", error);
+                res.status(500).json({ error: "Deployment failed" });
+            }
+        }));
+        app.get("/status", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+            const id = req.query.id;
+            try {
+                const response = yield subscriber.hGet("status", id);
+                res.json({ status: response });
+            }
+            catch (error) {
+                console.error("Error fetching status:", error);
+                res.status(500).json({ error: "Failed to fetch status" });
+            }
+        }));
+        app.listen(3000, () => {
+            console.log("Server is running on port 3000");
         });
     }
     catch (error) {
-        // Clean up in case of error
-        yield deleteDirectory(outputPath);
-        console.error("Error in deploy:", error);
-        res.status(500).json({
-            error: "Deployment failed"
-        });
+        console.error("Failed to initialize Redis clients:", error);
+        process.exit(1);
     }
-}));
-app.get("/status", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const id = req.query.id;
-    const response = yield subscriber.hGet("status", id);
-    res.json({
-        status: response
-    });
-}));
-app.listen(3000);
+}))();

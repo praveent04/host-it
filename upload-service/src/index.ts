@@ -6,26 +6,56 @@ import { getAllFiles } from "./file";
 import path from "path";
 import { uploadFile } from "./aws";
 import { createClient } from "redis";
-import fs from 'fs/promises';  
-
-
+import fs from 'fs/promises';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const publisher = createClient({
-    url: process.env.REDIS_URL
-});
-publisher.connect();
+// Redis connection details
+const redisHost = process.env.REDIS_URL;
+const redisPort = 18948;
+const redisPassword = process.env.REDIS_PASSWORD;
 
-const subscriber = createClient({
-    url: process.env.REDIS_URL
-});
-subscriber.connect();
+async function createRedisClients() {
+    const publisher = createClient({
+        socket: {
+            host: redisHost,
+            port: redisPort,
+        },
+        password: redisPassword
+    });
+    
+    publisher.on('error', (err) => {
+        console.error('Redis Publisher Connection Error:', err);
+    });
+
+    await publisher.connect();
+    console.log('Publisher connected');
+
+    const subscriber = createClient({
+        socket: {
+            host: redisHost,
+            port: redisPort,
+        },
+        password: redisPassword
+    });
+    
+    subscriber.on('error', (err) => {
+        console.error('Redis Subscriber Connection Error:', err);
+    });
+
+    await subscriber.connect();
+    console.log('Subscriber connected');
+
+    return { publisher, subscriber };
+}
 
 const app = express();
-app.use(cors())
+app.use(cors());
 app.use(express.json());
+
+let publisher: any;
+let subscriber: any;
 
 // Helper function to delete directory recursively
 async function deleteDirectory(dirPath: string) {
@@ -37,49 +67,54 @@ async function deleteDirectory(dirPath: string) {
     }
 }
 
-app.post("/deploy", async (req, res) => {
-    const repoUrl = req.body.repoUrl;
-    const id = generate();
-    const outputPath = path.join(__dirname, `output/${id}`);
-
+(async () => {
     try {
-        // Clone repository
-        await simpleGit().clone(repoUrl, outputPath);
+        const clients = await createRedisClients();
+        publisher = clients.publisher;
+        subscriber = clients.subscriber;
 
-        // Get all files
-        const files = getAllFiles(outputPath);
-        
-        // Upload files to S3
-        for (const file of files) {
-            await uploadFile(file.slice(__dirname.length + 1), file);
-        }
+        app.post("/deploy", async (req, res) => {
+            const repoUrl = req.body.repoUrl;
+            const id = generate();
+            const outputPath = path.join(__dirname, `output/${id}`);
 
-        // Push to Redis
-        await publisher.lPush("build-queue", id);
-        await publisher.hSet("status", id, "uploaded");
+            try {
+                await simpleGit().clone(repoUrl, outputPath);
+                const files = getAllFiles(outputPath);
 
-        // Delete the directory after successful upload
-        await deleteDirectory(outputPath);
+                for (const file of files) {
+                    await uploadFile(file.slice(__dirname.length + 1), file);
+                }
 
-        res.json({
-            id: id
+                await publisher.lPush("build-queue", id);
+                await publisher.hSet("status", id, "uploaded");
+
+                await deleteDirectory(outputPath);
+
+                res.json({ id: id });
+            } catch (error) {
+                await deleteDirectory(outputPath);
+                console.error("Error in deploy:", error);
+                res.status(500).json({ error: "Deployment failed" });
+            }
+        });
+
+        app.get("/status", async (req, res) => {
+            const id = req.query.id as string;
+            try {
+                const response = await subscriber.hGet("status", id);
+                res.json({ status: response });
+            } catch (error) {
+                console.error("Error fetching status:", error);
+                res.status(500).json({ error: "Failed to fetch status" });
+            }
+        });
+
+        app.listen(3000, () => {
+            console.log("Server is running on port 3000");
         });
     } catch (error) {
-        // Clean up in case of error
-        await deleteDirectory(outputPath);
-        console.error("Error in deploy:", error);
-        res.status(500).json({
-            error: "Deployment failed"
-        });
+        console.error("Failed to initialize Redis clients:", error);
+        process.exit(1);
     }
-});
-
-app.get("/status", async(req,res) => {
-    const id = req.query.id;
-    const response = await subscriber.hGet("status", id as string);
-    res.json({
-        status: response
-    });
-});
-
-app.listen(3000);
+})();
