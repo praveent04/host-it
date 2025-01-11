@@ -6,7 +6,7 @@ const express = require('express');
 dotenv.config();
 
 // Redis connection details
-const redisHost = process.env.REDIS_URL ;
+const redisHost = process.env.REDIS_URL;
 const redisPort = 18948;
 const redisPassword = process.env.REDIS_PASSWORD;
 
@@ -44,22 +44,42 @@ async function createRedisClients() {
     return { publisher, subscriber };
 }
 
+// Function to test Redis connection
+async function testRedisConnection(client:any) {
+    try {
+        const pong = await client.ping();
+        console.log(`Redis connection test successful: ${pong}`);
+        return true;
+    } catch (error) {
+        console.error("Error testing Redis connection:", error);
+        return false;
+    }
+}
 
 const app = express();
 
-const PORT = 3000;
+const PORT = 3002;
 
 app.listen(PORT, () => {
     console.log(`Fake Express server is running on port ${PORT}`);
 });
 
-let publisher: any;
-let subscriber: any;
+let publisher;
+let subscriber;
 
 async function main() {
     const clients = await createRedisClients();
     publisher = clients.publisher;
     subscriber = clients.subscriber;
+
+    // Test Redis connection for both publisher and subscriber
+    const publisherConnected = await testRedisConnection(publisher);
+    const subscriberConnected = await testRedisConnection(subscriber);
+
+    if (!publisherConnected || !subscriberConnected) {
+        console.error("Failed to establish a connection with Redis.");
+        process.exit(1); // Exit if connections fail
+    }
 
     while (true) {
         try {

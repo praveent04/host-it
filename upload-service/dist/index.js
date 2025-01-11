@@ -56,12 +56,25 @@ function createRedisClients() {
         return { publisher, subscriber };
     });
 }
+// Function to test Redis connection
+function testRedisConnection(client) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const pong = yield client.ping();
+            console.log(`Redis connection test successful: ${pong}`);
+            return true;
+        }
+        catch (error) {
+            console.error("Error testing Redis connection:", error);
+            return false;
+        }
+    });
+}
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 let publisher;
 let subscriber;
-// Helper function to delete directory recursively
 function deleteDirectory(dirPath) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -78,6 +91,8 @@ function deleteDirectory(dirPath) {
         const clients = yield createRedisClients();
         publisher = clients.publisher;
         subscriber = clients.subscriber;
+        yield testRedisConnection(publisher);
+        yield testRedisConnection(subscriber);
         app.post("/deploy", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             const repoUrl = req.body.repoUrl;
             const id = (0, utils_1.generate)();

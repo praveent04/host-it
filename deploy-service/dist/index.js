@@ -51,8 +51,22 @@ function createRedisClients() {
         return { publisher, subscriber };
     });
 }
+// Function to test Redis connection
+function testRedisConnection(client) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const pong = yield client.ping();
+            console.log(`Redis connection test successful: ${pong}`);
+            return true;
+        }
+        catch (error) {
+            console.error("Error testing Redis connection:", error);
+            return false;
+        }
+    });
+}
 const app = express();
-const PORT = 3000;
+const PORT = 3002;
 app.listen(PORT, () => {
     console.log(`Fake Express server is running on port ${PORT}`);
 });
@@ -63,6 +77,13 @@ function main() {
         const clients = yield createRedisClients();
         publisher = clients.publisher;
         subscriber = clients.subscriber;
+        // Test Redis connection for both publisher and subscriber
+        const publisherConnected = yield testRedisConnection(publisher);
+        const subscriberConnected = yield testRedisConnection(subscriber);
+        if (!publisherConnected || !subscriberConnected) {
+            console.error("Failed to establish a connection with Redis.");
+            process.exit(1); // Exit if connections fail
+        }
         while (true) {
             try {
                 const res = yield subscriber.brPop((0, redis_1.commandOptions)({ isolated: true }), 'build-queue', 0);

@@ -50,6 +50,18 @@ async function createRedisClients() {
     return { publisher, subscriber };
 }
 
+// Function to test Redis connection
+async function testRedisConnection(client:any) {
+    try {
+        const pong = await client.ping();
+        console.log(`Redis connection test successful: ${pong}`);
+        return true;
+    } catch (error) {
+        console.error("Error testing Redis connection:", error);
+        return false;
+    }
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -57,7 +69,6 @@ app.use(express.json());
 let publisher: any;
 let subscriber: any;
 
-// Helper function to delete directory recursively
 async function deleteDirectory(dirPath: string) {
     try {
         await fs.rm(dirPath, { recursive: true, force: true });
@@ -72,6 +83,9 @@ async function deleteDirectory(dirPath: string) {
         const clients = await createRedisClients();
         publisher = clients.publisher;
         subscriber = clients.subscriber;
+
+        await testRedisConnection(publisher);
+        await testRedisConnection(subscriber);
 
         app.post("/deploy", async (req, res) => {
             const repoUrl = req.body.repoUrl;
