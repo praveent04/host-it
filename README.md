@@ -2,8 +2,6 @@
 
 A simple CLI tool to dynamically update your hosts file with development domain mappings.
 
-![HOST-IT Logo](https://github.com/praveent04/host-it/raw/main/assets/logo.png)
-
 ## Overview
 
 HOST-IT is a command-line tool that simplifies managing local domain mappings in your hosts file for development purposes. It allows you to easily add, remove, list, and organize host entries without manually editing the hosts file.
